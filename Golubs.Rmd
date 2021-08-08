@@ -1,0 +1,87 @@
+---
+title: "Golub data"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,collapes = TRUE,message = FALSE)
+```
+
+# Golub dataset
+
+LOad the Golub dataset and use only the first 300 genes as we are only trying to understand how the package 'NMF' works and large data might cost too much time to run.
+
+```{r}
+rm(list=ls())
+library(NMF)
+if(requireNamespace("Biobase", quietly=TRUE)){
+data(esGolub)
+#only use the first 200 genes.
+esGolub <- esGolub[1:300,]
+# remove the uneeded variable 'Sample' from the phenotypic data
+esGolub$Sample <- NULL
+}
+```
+
+# Estimating the factorization rank
+
+Performing 30-50 runs is considered sufficient to get a robust estimate of the factorization rank. Here we perform 40 runs and we consider the value of factorization rank from 2 to 6.
+
+```{r}
+if(requireNamespace("Biobase", quietly=TRUE)){
+# perform 40 runs for each value of r in range 2:6
+  estim.r <- nmf(esGolub, 2:6, nrun=40, seed=1234)
+  if(requireNamespace("Biobase", quietly=TRUE)){
+    plot(estim.r)
+  }
+}
+plot(x=c(2,3,4,5,6),y=c(1,0.996247,0.9758292,0.9682633,0.9865148),xlab='Factorization rank (r)', ylab='cophenetic correlation coefficient',main='Cophenetic',col='purple',type='o')
+```
+
+The sharp decrease in the cophenetic correlation coefficient at rank r = 6 indicates that substantially
+less stability is achieved using more than 5 clusters. Brunet proposed to take the first value of r for which the cophenetic coefficient starts decreasing.  Hutchins suggested to choose the first elbow of the RSS curve. Both suggest r = 3.
+
+# Heat map of W and H
+
+```{r,fig.height=10,fig.width=20}
+if(requireNamespace("Biobase", quietly=TRUE)){
+# run nmf with .option='t'
+res <- nmf(esGolub, 3, nrun=40, seed=1234)
+}
+if(requireNamespace("Biobase", quietly=TRUE)){
+layout(cbind(1,2))
+# basis components
+basismap(res, subsetRow=TRUE)
+# mixture coefficients
+coefmap(res,annCol=esGolub)
+}
+```
+
+# Cluster stability
+
+```{r,fig.height=8,fig.width=8}
+estim.r=nmf(esGolub, 3, nrun=40, seed=1234)
+if(requireNamespace("Biobase", quietly=TRUE)){
+consensusmap(estim.r, annCol=esGolub)
+}
+```
+
+The clear block structure indicates strong stability of the clusters. 
+
+# Converge speed
+
+```{r}
+if(requireNamespace("Biobase", quietly=TRUE)){
+# fit a model for several different methods
+res.multi.method <- nmf(esGolub, 3, list('brunet', 'lee', 'ns'), seed=1234, .options='t')
+}
+if(requireNamespace("Biobase", quietly=TRUE)){
+plot(res.multi.method)
+}
+```
+
+Convergence is achieved when the consensus matrix does not change over 40 iterations. All algorithms appear to achieve convergence after a few hundred iterations. The NMF with brunet algorithm converges first, then nsNMF converges, lee conerges at the last.
